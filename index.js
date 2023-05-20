@@ -2,9 +2,11 @@ const express = require('express');
 const multer = require('multer');
 
 const {JobModel}=require('./Model')
-
+const axios = require('axios');
+const fs = require('fs');
 const mongoose = require('mongoose');
 const ffmpeg = require('fluent-ffmpeg');
+const { Queue,Worker } =require ('bullmq');
 
 const app = express();
 const upload = multer({ dest: 'uploads/' });
@@ -14,22 +16,26 @@ mongoose.connect('mongodb+srv://user:aloo@cluster0.ybbgwrx.mongodb.net/?retryWri
   .then(() => console.log('Connected to MongoDB Atlas'))
   .catch((err) => console.error('Error connecting to MongoDB Atlas:', err));
 
-// Register the BullAdapter with BullBoard
-//SetQueues(videoQueueAdapter);
-
-
-
 // Define route to add video link to the queue
-app.post('/upload', upload.single('video'), async (req, res) => {
-  const { videoLink } = req.body;
+app.post('/uploads', upload.single('video'), async (req, res) => {
+
+  console.log('reached')
+  const { fileLink } = req.body;
+  // Download the video from the given link and save it to the upload folder `uploads/video_${job._id}.mp4`;
+  const response = await axios.get(fileLink, { responseType: 'stream' });
+  const filePath = `uploads/video_2.mp4`;
+  const fileStream = fs.createWriteStream(filePath);
+  response.data.pipe(fileStream);
+fileStream.on('finish', () => {
+ 
+  });
 
   // Create a new job in MongoDB Atlas
-  const job = await JobModel.create({ status: 'processing' });
+ // const job = await JobModel.create({ status: 'processing' });
+  
 
-  // Add the job to the Bull queue
-  //videoQueue.add({ videoLink, jobId: job._id });
-
-  res.json({ jobId: job._id });
+  //res.json({ jobId: job._id });
+  res.json('nice job')
 });
 
 // Define route to download processed video
