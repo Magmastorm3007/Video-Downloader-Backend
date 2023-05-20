@@ -1,8 +1,8 @@
 const express = require('express');
 const multer = require('multer');
-const { BullAdapter,SetQueues } = require('bull-board/bullAdapter');
+
 const {JobModel}=require('./Model')
-const Queue = require('bull');
+
 const mongoose = require('mongoose');
 const ffmpeg = require('fluent-ffmpeg');
 
@@ -13,11 +13,6 @@ const upload = multer({ dest: 'uploads/' });
 mongoose.connect('mongodb+srv://user:aloo@cluster0.ybbgwrx.mongodb.net/?retryWrites=true&w=majority/Jobs', { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log('Connected to MongoDB Atlas'))
   .catch((err) => console.error('Error connecting to MongoDB Atlas:', err));
-
-// Create a Bull queue
-const videoQueue = new Queue('videoQueue');
-// Create BullAdapter instance
-const videoQueueAdapter = new BullAdapter(videoQueue);
 
 // Register the BullAdapter with BullBoard
 //SetQueues(videoQueueAdapter);
@@ -32,7 +27,7 @@ app.post('/upload', upload.single('video'), async (req, res) => {
   const job = await JobModel.create({ status: 'processing' });
 
   // Add the job to the Bull queue
-  videoQueue.add({ videoLink, jobId: job._id });
+  //videoQueue.add({ videoLink, jobId: job._id });
 
   res.json({ jobId: job._id });
 });
@@ -58,7 +53,7 @@ app.get('/download/:jobId', async (req, res) => {
 })
 
 app.get('/', (req, res) => {
-  res.send('Hello World!')
+  res.send('Hello World!');
 })
 
 const port = 5000;
