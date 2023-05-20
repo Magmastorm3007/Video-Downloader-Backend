@@ -1,6 +1,6 @@
 const express = require('express');
 const multer = require('multer');
-const { BullAdapter } = require('bull-board/bullAdapter');
+const { BullAdapter,SetQueues } = require('bull-board/bullAdapter');
 const {JobModel}=require('./Model')
 const Queue = require('bull');
 const mongoose = require('mongoose');
@@ -16,6 +16,11 @@ mongoose.connect('mongodb+srv://user:aloo@cluster0.ybbgwrx.mongodb.net/?retryWri
 
 // Create a Bull queue
 const videoQueue = new Queue('videoQueue');
+// Create BullAdapter instance
+const videoQueueAdapter = new BullAdapter(videoQueue);
+
+// Register the BullAdapter with BullBoard
+//SetQueues(videoQueueAdapter);
 
 
 
@@ -51,3 +56,7 @@ app.get('/download/:jobId', async (req, res) => {
     }
   })
 })
+const port = 5000;
+app.listen(port, () => {
+  console.log(`Server started on port ${port}`);
+});
