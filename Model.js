@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-// Define the Job schema
+// Define the job schema
 const jobSchema = new mongoose.Schema({
   jobId: {
     type: String,
@@ -11,10 +11,10 @@ const jobSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  error: String,
-}, { timestamps: true });
+  
+});
 
 
-const JobModel = mongoose.model('Jobs', jobSchema);
+const JobModel = mongoose.model('Job', jobSchema);
 
-module.exports = JobModel;
+module.exports = { JobModel };
