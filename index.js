@@ -6,19 +6,28 @@ const axios = require('axios');
 const fs = require('fs');
 const mongoose = require('mongoose');
 const ffmpeg = require('fluent-ffmpeg');
-const { Queue,Worker } =require ('bullmq');
+const NodeResque = require('node-resque');
 
 const Redis = require('ioredis');
 
 // Create a new Redis connection instance
 
-const connection=new Redis()
+const connection={
+  pkg: "ioredis",
+  host: "127.0.0.1",
+  password: null,
+  port: 6379,
+  database: 0,
+}
 
-// Use the Redis connection instance with the Queue and Worker
-const myQueue = new Queue('myqueue', { connection:new Redis(process.env.REDIS_URL)  });
-const myWorker = new Worker(
-  'myworker',
-  async (job) => {
+const myQueue = new NodeResque.Queue({ connection });
+
+// Create a new worker
+const myWorker = new NodeResque.Worker(
+  { connection, queues: ['myqueue'] },
+  async (job, done) => {
+    
+
     console.log('Processing job:', job.id);
     const { jobId } = job.data;
     const inputFilePath = `./uploads/video_${jobId}.mp4`;
@@ -32,7 +41,7 @@ const myWorker = new Worker(
       // Handle error accordingly
     }
   },
-  { connection }
+  
 );
 
 // Start the worker
@@ -113,28 +122,29 @@ app.post('/api/uploads', upload.single('video'), async (req, res) => {
     console.error('Error saving job:', error);
   });
 
-
-    await myQueue.add(job.id, { jobId: job.id });
+  await myQueue.enqueue('myqueue', 'Job', [job.id, { jobId: job.id }]);
+   // await myQueue.add(job.id, { jobId: job.id });
   // Usage within your job processing logic
   
     res.json({ jobId: job.id });
   });
 });
+
 async function runJobs() {
-  const jobs = await myQueue.getJobs(['waiting', 'active']);
+  const jobs = await myQueue.queued('myqueue');
+
   if (jobs.length > 0) {
     console.log('Running jobs:');
     for (const job of jobs) {
-      console.log('Job ID:', job.id);
-    
+      console.log('Job ID');
+      // Process the job using job.args[0] and job.args[1] (e.g., jobId and data)
     }
   } else {
     console.log('No jobs to run.');
   }
 }
 
-// Start running the jobs
-runJobs();
+runJobs()
 
 
 // Define route to download processed video
