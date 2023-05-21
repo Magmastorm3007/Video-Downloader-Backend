@@ -1,80 +1,63 @@
-const { Worker, Plugins, Scheduler, Queue } =require("node-resque")
 const express = require('express');
 const multer = require('multer');
 
-
-
-const { promisify } = require('util');
 const JobModel = require('./Model').JobModel;
 const axios = require('axios');
 const fs = require('fs');
 const mongoose = require('mongoose');
 const ffmpeg = require('fluent-ffmpeg');
-mongoose.connect('mongodb+srv://user:aloo@cluster0.ybbgwrx.mongodb.net/Jobs?retryWrites=true&w=majority', { useNewUrlParser: true, useUnifiedTopology: true })
-  .then(() => console.log('Connected to MongoDB Atlas'))
-  .catch((err) => console.error('Error connecting to MongoDB Atlas:', err));
+const { Queue,Worker } =require ('bullmq');
+
+const Redis = require('ioredis');
+
+// Create a new Redis connection instance
+
+const connection=new Redis()
+
+// Use the Redis connection instance with the Queue and Worker
+const myQueue = new Queue('myqueue', { connection:new Redis(process.env.REDIS_URL)  });
+const myWorker = new Worker(
+  'myworker',
+  async (job) => {
+    console.log('Processing job:', job.id);
+    const { jobId } = job.data;
+    const inputFilePath = `./uploads/video_${jobId}.mp4`;
+    const outputFilePath = `./uploads/video_processed_${jobId}.mp4`;
+
+    try {
+      await processVideo(inputFilePath, outputFilePath, jobId);
+      console.log('Job completed:', job.id);
+    } catch (error) {
+      console.error('Error processing job:', job.id, error);
+      // Handle error accordingly
+    }
+  },
+  { connection }
+);
+
+// Start the worker
+
+console.log('Worker connected:', myWorker.connected);
+
 
 const app = express();
 app.use(express.json())
-
-async function boot() {
-
-  const connectionDetails = {
-    pkg: "ioredis",
-    host: "127.0.0.1",
-    password: null,
-    port: 6379,
-    database: 0,
-   
-  };
-
-
-
-  let jobsToComplete = 0;
-  
-  const jobs = {
-    process: {
-      plugins: [Plugins.JobLock],
-      pluginOptions: {
-        JobLock: { reEnqueue: true },
-      },
-      perform: async (job) => {
-        await new Promise((resolve) => {
-            console.log('Processing job:', job.id);
-            const { jobId } = job.data;
-            const inputFilePath = `./uploads/video_${jobId}.mp4`;
-            const outputFilePath = `./uploads/video_processed_${jobId}.mp4`;
-        
-            try {
-               processVideo(inputFilePath, outputFilePath, jobId);
-              console.log('Job completed:', job.id);
-            } catch (error) {
-              console.error('Error processing job:', job.id, error);
-              // Handle error accordingly
-            }
-        });
-        jobsToComplete--;
-        tryShutdown();
-
-     
-        return "ok";
-      },
-    },
-   
-  }; }
-
-
-
-
 
 
 
 const upload = multer({ dest: 'uploads/' });
 
+// Connect to MongoDB Atlas
+mongoose.connect('mongodb+srv://user:aloo@cluster0.ybbgwrx.mongodb.net/Jobs?retryWrites=true&w=majority', { useNewUrlParser: true, useUnifiedTopology: true })
+  .then(() => console.log('Connected to MongoDB Atlas'))
+  .catch((err) => console.error('Error connecting to MongoDB Atlas:', err));
 
 
 
-// Function to process a video and update job status
+
+
+  
+  // Function to process a video and update job status
   async function processVideo(inputFilePath, outputFilePath, jobId) {
     return new Promise((resolve, reject) => {
       ffmpeg(inputFilePath)
@@ -131,22 +114,41 @@ app.post('/api/uploads', upload.single('video'), async (req, res) => {
   });
 
 
-
-   // await myQueue.add('myworker', { jobId: jobId });
+    await myQueue.add(job.id, { jobId: job.id });
   // Usage within your job processing logic
   
     res.json({ jobId: job.id });
   });
 });
+async function runJobs() {
+  const jobs = await myQueue.getJobs(['waiting', 'active']);
+  if (jobs.length > 0) {
+    console.log('Running jobs:');
+    for (const job of jobs) {
+      console.log('Job ID:', job.id);
+    
+    }
+  } else {
+    console.log('No jobs to run.');
+  }
+}
 
-  
+// Start running the jobs
+runJobs();
 
 
 // Define route to download processed video
 app.get('/api/download/', async (req, res) => {
   const { jobId } = req.params;
 
+  // Fetch the job from MongoDB Atlas
+//  const job = await JobModel.findById(jobId);
 
+ // if (!job || job.status !== 'completed') {
+  //  return res.status(404).json({ message: 'Job not found or processing incomplete' });
+  //}
+
+  //const filePath = `./output_${jobId}.mp4`;
 
 const filePath = `./uploads/video_3.mp4`;
   res.download(filePath, (err) => {
